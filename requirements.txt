@@ -1,0 +1,3 @@
+# Install in Blender's Python for Gemini Assistant add-on
+# Example: /path/to/blender/python/bin/python3 -m pip install -r requirements.txt
+google-generativeai>=0.3.0

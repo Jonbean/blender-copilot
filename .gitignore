@@ -1,0 +1,20 @@
+# API key - never commit
+gemini_assistant/gemini_api_key.txt
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE / OS
+.cursor/
+.DS_Store
+*.swp
+*.swo
