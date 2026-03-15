@@ -1,6 +1,9 @@
 # API key - never commit
 gemini_assistant/gemini_api_key.txt
 
+# Add-on zip (build artifact)
+gemini_assistant.zip
+
 # Python
 .venv/
 venv/
