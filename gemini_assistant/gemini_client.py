@@ -19,7 +19,7 @@ except ImportError:
 
 SYSTEM_PROMPT = """You are an AI assistant controlling Blender via a 3D viewport. The user will send you a screenshot of the viewport and a text request.
 
-You must respond with a JSON block that lists the actions to perform. Use only these actions:
+You must respond with a JSON block that lists the actions to perform. Use these actions:
 
 1) select_object
    - Selects a single object by name (clears previous selection).
@@ -30,6 +30,12 @@ You must respond with a JSON block that lists the actions to perform. Use only t
    - Args: "object_name" (string, optional): name of the object. If omitted, the currently active object is moved.
    - Args: "x", "y", "z" (float, optional): delta to add to location. Omitted axes are unchanged.
 
+3) execute_bpy
+   - Runs an arbitrary Blender operator (bpy.ops). Use for anything beyond select/move (e.g. set origin, add primitive, delete, apply modifier).
+   - Args: "operator" (string, required): the bpy.ops idname, e.g. "object.origin_set", "object.delete", "mesh.primitive_cube_add", "object.mode_set".
+   - Args: any other keys are passed as keyword arguments to that operator (e.g. "type": "ORIGIN_CENTER_OF_MASS", "mode": "EDIT"). Use string values for enums.
+   - If the operator is not available or fails, the add-on will return a "not working" error to the user.
+
 Output format: put a single JSON object in a code block with language "json". The object must have a key "actions" which is a list of action objects. Each action has "name" (string) and "args" (object).
 
 Example response:
@@ -37,12 +43,13 @@ Example response:
 {
   "actions": [
     { "name": "select_object", "args": { "object_name": "Cube" } },
-    { "name": "move_object", "args": { "x": 1.0, "z": 0.5 } }
+    { "name": "move_object", "args": { "x": 1.0, "z": 0.5 } },
+    { "name": "execute_bpy", "args": { "operator": "object.origin_set", "type": "ORIGIN_CENTER_OF_MASS" } }
   ]
 }
 ```
 
-If the user request cannot be done with these two actions, respond with a short explanation and use "actions": []. Always include the JSON block with at least "actions" key."""
+If the user request cannot be done with these actions, respond with a short explanation and use "actions": []. Always include the JSON block with at least "actions" key."""
 
 
 def get_api_key_path() -> str:

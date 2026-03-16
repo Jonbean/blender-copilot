@@ -28,7 +28,7 @@ def _update_response_lines(scene):
 
 
 def execute_actions(action_list):
-    """Run parsed actions through bpy (select_object, move_object). Returns list of result strings."""
+    """Run parsed actions through bpy (select_object, move_object, execute_bpy). Returns list of result strings."""
     results = []
     for item in action_list:
         name = (item or {}).get("name")
@@ -44,6 +44,15 @@ def execute_actions(action_list):
                 z=args.get("z"),
             )
             results.append(f"move_object({args}) -> {out}")
+        elif name == "execute_bpy":
+            args = args or {}
+            operator_idname = args.get("operator") if isinstance(args, dict) else None
+            kwargs = {k: v for k, v in args.items() if k != "operator"} if isinstance(args, dict) else {}
+            if not operator_idname:
+                out = {"ok": False, "error": "execute_bpy requires 'operator' (e.g. 'object.origin_set')"}
+            else:
+                out = actions.execute_bpy(operator_idname, **kwargs)
+            results.append(f"execute_bpy({operator_idname}, {kwargs}) -> {out}")
         else:
             results.append(f"Unknown action: {name}")
     return results
