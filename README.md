@@ -22,17 +22,17 @@ Blender add-on that uses **Google Gemini** as the brain to control the viewport 
 4. **Install the Gemini Python package** in Blender's Python (required for the add-on to talk to the API):
    - **Recommended — from inside Blender:** Open the **Scripting** workspace, paste the code below in the editor, and run it (Alt+P or click Run Script). If you get "No module named pip", run the ensurepip snippet first, then run the install again.
      ```python
-     import subprocess, sys
-     try:
-         subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai"])
-         print("Installed google-generativeai OK")
-     except subprocess.CalledProcessError as e:
-         print("pip install failed:", e)
+import subprocess, sys
+try:
+   subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai"])
+   print("Installed google-generativeai OK")
+except subprocess.CalledProcessError as e:
+   print("pip install failed:", e)
      ```
      If pip is missing, run this once:
      ```python
-     import subprocess, sys
-     subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+   import subprocess, sys
+   subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
      ```
    - **From terminal** (use Blender's Python, not system Python):  
      **macOS:** `/Applications/Blender.app/Contents/Resources/4.2/python/bin/python3.11 -m pip install google-generativeai` (adjust 4.2 and python3.11 to your Blender version).  
@@ -48,6 +48,15 @@ Blender add-on that uses **Google Gemini** as the brain to control the viewport 
    - “Select the Cube and move it up by 2”
    - “Select Sphere and move it 1 unit on X”
 4. Click **Ask Gemini**. The viewport is captured, sent to Gemini with the prompt and scene object names, and any returned **select_object** / **move_object** actions are run in Blender. The response (and executed actions) are shown in the panel.
+
+## Spell code book
+
+Exact-match “spells” are handled before Gemini: if your prompt matches a spell **exactly** (ignoring case and outer spaces), it is either **translated** into a different prompt sent to Gemini, or run as **direct actions** (no API call).
+
+- **wingardium leviosa** – Moves the active object up by 3 units (direct action).
+- **abracadabra** – Random shape change on the active mesh: adds a vertex at the 3D cursor or removes the vertex nearest the cursor (direct action). Select a mesh object first.
+
+To add or change spells, edit `gemini_assistant/spell_codebook.py`: add entries to `SPELL_BOOK` with `phrase`, and either `translated_prompt` (string to send to Gemini) or `direct_actions` (list of `{"name": "...", "args": {...}}` action dicts).
 
 ## API key file location
 

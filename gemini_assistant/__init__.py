@@ -15,6 +15,7 @@ import bpy
 from . import viewport_capture
 from . import gemini_client
 from . import actions
+from . import spell_codebook
 
 
 def _update_response_lines(scene):
@@ -53,6 +54,9 @@ def execute_actions(action_list):
             else:
                 out = actions.execute_bpy(operator_idname, **kwargs)
             results.append(f"execute_bpy({operator_idname}, {kwargs}) -> {out}")
+        elif name == "shape_change_near_cursor":
+            out = actions.shape_change_near_cursor()
+            results.append(f"shape_change_near_cursor() -> {out}")
         else:
             results.append(f"Unknown action: {name}")
     return results
@@ -96,8 +100,21 @@ class GEMINI_OT_ask(bpy.types.Operator):
             self.report({"WARNING"}, "Enter a prompt in the text field.")
             return {"CANCELLED"}
 
-        # Debug: show prompt and that we're about to call Gemini
-        print("[Gemini Assistant] Prompt to send:", repr(prompt[:200]) + ("..." if len(prompt) > 200 else ""))
+        # Spell code book: exact match translates to Gemini prompt or direct actions
+        translated_prompt, direct_actions = spell_codebook.resolve(prompt)
+        if direct_actions is not None:
+            # Run spell actions directly (no Gemini call)
+            run_results = execute_actions(direct_actions)
+            scene["gemini_assistant_response"] = (
+                f"Spell cast: \"{prompt}\"\n\n--- Actions executed ---\n" + "\n".join(run_results)
+            )
+            _update_response_lines(scene)
+            self.report({"INFO"}, f"Spell: ran {len(direct_actions)} action(s).")
+            return {"FINISHED"}
+
+        # Use translated prompt if spell provided one, else original
+        prompt_to_send = translated_prompt if translated_prompt is not None else prompt
+        print("[Gemini Assistant] Prompt to send:", repr(prompt_to_send[:200]) + ("..." if len(prompt_to_send) > 200 else ""))
 
         # Capture viewport (raw PNG bytes)
         raw_bytes, _ = viewport_capture.capture_viewport_to_bytes()
@@ -111,7 +128,7 @@ class GEMINI_OT_ask(bpy.types.Operator):
         # Call Gemini
         object_list = actions.list_objects()
         print("[Gemini Assistant] Calling Gemini API with", len(object_list), "objects in scene")
-        text, action_list = gemini_client.call_gemini(raw_bytes, prompt, object_list)
+        text, action_list = gemini_client.call_gemini(raw_bytes, prompt_to_send, object_list)
         print("[Gemini Assistant] Gemini returned. Response length:", len(text or ""), "| Actions parsed:", len(action_list or []))
 
         # Store raw response for UI and scrollable lines

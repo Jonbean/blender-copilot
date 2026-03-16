@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
 Blender Gemini Assistant - Action execution (bpy-backed).
-Implements select_object, move_object, and execute_bpy (arbitrary bpy operator) for the AI agent.
+Implements select_object, move_object, execute_bpy (arbitrary bpy operator), and
+shape_change_near_cursor (spell demo) for the AI agent.
 """
 
+import random
 import bpy
+import bmesh
 
 # Operators that are not allowed (safety: script execution, quit, etc.)
 EXECUTE_BPY_BLOCKLIST = {
@@ -106,3 +109,68 @@ def execute_bpy(operator_idname: str, **kwargs) -> dict:
     if result == {"CANCELLED"}:
         return {"ok": False, "error": "Operator was cancelled or not available in this context"}
     return {"ok": True, "operator": operator_idname}
+
+
+def shape_change_near_cursor() -> dict:
+    """
+    Random shape change near the 3D cursor: either add one vertex at the cursor,
+    or remove one vertex closest to the cursor. Operates on the active object (must be a mesh).
+    Returns {"ok": True, "action": "add_vertex"|"remove_vertex"} or {"ok": False, "error": "..."}.
+    """
+    obj = bpy.context.view_layer.objects.active
+    if not obj:
+        return {"ok": False, "error": "No active object"}
+    if obj.type != "MESH":
+        return {"ok": False, "error": "Active object is not a mesh"}
+    mesh = obj.data
+    if not mesh:
+        return {"ok": False, "error": "Object has no mesh data"}
+
+    cursor_world = bpy.context.scene.cursor.location
+    cursor_local = obj.matrix_world.inverted() @ cursor_world
+
+    was_edit = obj.mode == "EDIT"
+    if obj.mode != "EDIT":
+        try:
+            bpy.ops.object.mode_set(mode="EDIT")
+        except Exception as e:
+            return {"ok": False, "error": f"Could not enter edit mode: {e}"}
+
+    try:
+        bm = bmesh.from_edit_mesh(mesh)
+        n_verts = len(bm.verts)
+        # Random choice: add or remove (if we have more than 1 vertex we can remove)
+        can_remove = n_verts > 1
+        do_add = not can_remove or random.choice([True, False])
+
+        if do_add:
+            bm.verts.new(cursor_local)
+            bmesh.update_edit_mesh(mesh)
+            if not was_edit:
+                bpy.ops.object.mode_set(mode="OBJECT")
+            return {"ok": True, "action": "add_vertex"}
+        else:
+            # Find closest vertex to cursor (in local space)
+            best = None
+            best_dist_sq = float("inf")
+            for v in bm.verts:
+                d = (v.co - cursor_local).length_squared
+                if d < best_dist_sq:
+                    best_dist_sq = d
+                    best = v
+            if best is None:
+                if not was_edit:
+                    bpy.ops.object.mode_set(mode="OBJECT")
+                return {"ok": False, "error": "No vertex to remove"}
+            bm.verts.remove(best)
+            bmesh.update_edit_mesh(mesh)
+            if not was_edit:
+                bpy.ops.object.mode_set(mode="OBJECT")
+            return {"ok": True, "action": "remove_vertex"}
+    except Exception as e:
+        if not was_edit and obj.mode == "EDIT":
+            try:
+                bpy.ops.object.mode_set(mode="OBJECT")
+            except Exception:
+                pass
+        return {"ok": False, "error": str(e)}
